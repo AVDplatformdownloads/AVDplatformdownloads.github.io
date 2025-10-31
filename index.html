@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Download helper</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; max-width:720px; margin:40px auto; padding:20px; line-height:1.5; }
+    .card { border:1px solid #e0e0e0; border-radius:12px; padding:20px; box-shadow: 0 6px 20px rgba(0,0,0,0.03); }
+    .big { font-size:1.2rem; font-weight:600; margin-bottom:8px; }
+    .btn { display:inline-block; padding:10px 16px; border-radius:10px; text-decoration:none; border:1px solid #888; background:#fff; cursor:pointer; margin-top:12px; }
+    .primary { background:#0b84ff; color:#fff; border-color:#066bd6; }
+    .hint { color:#666; font-size:0.95rem; margin-top:8px; }
+    select { padding:8px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="big" id="headline">Detecting your system...</div>
+    <div id="detected" class="hint">If detection fails you can pick your OS manually below.</div>
+
+    <div id="suggestion" style="margin-top:14px;">
+      <!-- filled by script -->
+    </div>
+
+    <div style="margin-top:18px;">
+      <label for="manual">Choose your OS (manual):</label>
+      <select id="manual">
+        <option value="">-- Select OS --</option>
+        <option value="windows64">Windows 64-bit</option>
+        <option value="windows32">Windows 32-bit</option>
+        <option value="windowsarm">Windows ARM64</option>
+        <option value="android">Android/Chrome OS</option>
+        <option value="web">Web browser</option>
+        <option value="other">Other / Unsure</option>
+      </select>
+      <a id="manualDownload" class="btn" href="#" style="margin-left:8px" hidden>Download</a>
+    </div>
+
+    <div class="hint" style="margin-top:14px">
+      Tip: If you expect many users, use stable version links and update this page when new versions release.
+    </div>
+  </div>
+
+  <script>
+  // --- REPLACE WITH YOUR ACTUAL DOWNLOAD LINKS ---
+const DOWNLOADS = {
+  windows64: "https://go.microsoft.com/fwlink/?linkid=2068602",
+  windows32: "https://go.microsoft.com/fwlink/?linkid=2068603",
+  windowsarm: "https://go.microsoft.com/fwlink/?linkid=2070304",
+  android:   "https://play.google.com/store/apps/details?id=com.microsoft.rdc.androidx",
+  mac:       "https://apps.apple.com/us/app/windows-app/id1295203466?mt=12",
+  ios:       "https://apps.apple.com/app/windows-app/id1295203466",  // use correct App Store link
+  web:       "https://client.wvd.microsoft.com/arm/webclient/"
+};
+  // -------------------------------------------------------
+
+  function detectOS() {
+    const nav = navigator;
+    if (nav.userAgentData && nav.userAgentData.platform) {
+      const p = nav.userAgentData.platform.toLowerCase();
+      if (p.includes("win")) {
+        // further check architecture
+        const arch = nav.userAgentData.architecture || "";
+        if (arch.toLowerCase().includes("arm")) return "windowsarm";
+        if (arch.toLowerCase().includes("64")) return "windows64";
+        return "windows32";
+      }
+      if (p.includes("android")) return "android";
+    }
+
+    const ua = nav.userAgent || "";
+    const platform = (nav.platform || "").toLowerCase() + " " + ua.toLowerCase();
+
+    if (/windows nt/.test(platform)) {
+      if (/arm64/.test(platform)) return "windowsarm";
+      if (/win64|wow64|x64/.test(platform)) return "windows64";
+      return "windows32";
+    }
+    if (/android/.test(platform)) return "android";
+    if (/iphone|ipad|ipod/.test(platform)) return "android"; // treat iOS similarly? you might change
+    if (/linux/.test(platform) || /mac os x/.test(platform)) return "web";
+
+    return "other";
+  }
+
+  function prettyName(key) {
+    return {
+      windows64: "Windows 64-bit",
+      windows32: "Windows 32-bit",
+      windowsarm: "Windows ARM64",
+      android: "Android / Chromebook",
+      web: "Web Browser",
+      other: "Other / Unknown"
+    }[key] || "Other/Unknown";
+  }
+
+  function showSuggestion(os) {
+    const headline = document.getElementById("headline");
+    const suggestion = document.getElementById("suggestion");
+    const detected = document.getElementById("detected");
+
+    if (os === "other") {
+      headline.textContent = "Couldn't detect your system automatically";
+      suggestion.innerHTML = `<div class="hint">Select your system from the dropdown below to get the correct file.</div>`;
+      detected.textContent = "Detection failed or system unknown.";
+      return;
+    }
+
+    headline.textContent = `Detected: ${prettyName(os)}`;
+    detected.textContent = `We recommend downloading for ${prettyName(os)}.`;
+
+    const url = DOWNLOADS[os];
+    if (!url) {
+      suggestion.innerHTML = `<div class="hint">No download link configured for ${prettyName(os)}. Please choose manually below.</div>`;
+      return;
+    }
+
+    suggestion.innerHTML = `
+      <div>
+        <a id="downloadBtn" class="btn primary" href="${url}" target="_blank" rel="noopener">Download for ${prettyName(os)}</a>
+        <a class="btn" href="${url}" target="_blank" rel="noopener" style="margin-left:8px">Open link</a>
+      </div>
+      <div class="hint" style="margin-top:8px">If this doesn't match your device, choose manually below.</div>
+    `;
+  }
+
+  (function init() {
+    const os = detectOS();
+    showSuggestion(os);
+
+    const sel = document.getElementById("manual");
+    const manualBtn = document.getElementById("manualDownload");
+    sel.addEventListener("change", function() {
+      const key = this.value;
+      if (!key) { manualBtn.hidden = true; manualBtn.href = "#"; manualBtn.textContent = "Download"; return; }
+      const url = DOWNLOADS[key];
+      manualBtn.hidden = false;
+      if (url) {
+        manualBtn.href = url;
+        manualBtn.textContent = `Download for ${prettyName(key)}`;
+      } else {
+        manualBtn.href = "#";
+        manualBtn.textContent = `No file configured for ${prettyName(key)}`;
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
